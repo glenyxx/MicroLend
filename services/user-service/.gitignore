@@ -1,0 +1,15 @@
+PORT=3001
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=microlend_user
+DB_PASSWORD=microlend_pass
+DB_NAME=microlend_db
+JWT_SECRET=microlend_super_secret_jwt_key_change_in_production
+JWT_EXPIRES_IN=7d
+```
+
+**Important:** Create a `.gitignore` file in the same folder so this secret file never gets pushed to GitHub. New File → `.gitignore`:
+```
+node_modules/
+.env
+coverage/

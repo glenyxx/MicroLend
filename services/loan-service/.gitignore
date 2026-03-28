@@ -1,0 +1,15 @@
+PORT=3002
+DB_HOST=localhost
+DB_PORT=5433
+DB_USER=microlend_user
+DB_PASSWORD=microlend_pass
+DB_NAME=microlend_loans_db
+JWT_SECRET=microlend_super_secret_jwt_key_change_in_production
+RABBITMQ_URL=amqp://microlend_user:microlend_pass@localhost:5672
+```
+
+Create `.gitignore`:
+```
+node_modules/
+.env
+coverage/

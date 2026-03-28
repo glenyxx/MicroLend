@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  postgres-loans:
+    image: postgres:15-alpine
+    container_name: microlend-loans-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: microlend_user
+      POSTGRES_PASSWORD: microlend_pass
+      POSTGRES_DB: microlend_loans_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - loans_postgres_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: microlend-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: microlend_user
+      RABBITMQ_DEFAULT_PASS: microlend_pass
+    ports:
+      - "5672:5672"    # AMQP protocol port (used by your app)
+      - "15672:15672"  # Management UI (open in browser to see queues)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  loans_postgres_data:
+  rabbitmq_data:
