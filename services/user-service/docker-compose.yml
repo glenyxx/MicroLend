@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: microlend-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: microlend_user
+      POSTGRES_PASSWORD: microlend_pass
+      POSTGRES_DB: microlend_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
