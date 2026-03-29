@@ -1,0 +1,21 @@
+{
+  "features": [
+    "monthly_income",
+    "debt_monthly",
+    "loan_amount",
+    "years_in_business",
+    "duration_months",
+    "sector",
+    "debt_to_income",
+    "loan_to_income"
+  ],
+  "model_type": "GradientBoostingClassifier",
+  "auc_score": 0.9365,
+  "sectors": {
+    "0": "retail",
+    "1": "agriculture",
+    "2": "services",
+    "3": "manufacturing",
+    "4": "transport"
+  }
+}
