@@ -1,0 +1,201 @@
+version: '3.8'
+
+volumes:
+  postgres_users_data:
+  postgres_loans_data:
+  postgres_repayments_data:
+  rabbitmq_data:
+
+# A shared network so all containers can talk to each other by service name
+networks:
+  microlend_network:
+    driver: bridge
+
+services:
+
+  # INFRASTRUCTURE 
+
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: microlend-postgres-users
+    restart: always
+    ports:
+      - "5432:5432"      # Expose to localhost for local development
+    environment:
+      POSTGRES_USER: microlend_user
+      POSTGRES_PASSWORD: microlend_pass
+      POSTGRES_DB: microlend_db
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    networks:
+      - microlend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U microlend_user -d microlend_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-loans:
+    image: postgres:15-alpine
+    container_name: microlend-postgres-loans
+    restart: always
+    ports:
+      - "5433:5432"      # Expose to localhost for local development
+    environment:
+      POSTGRES_USER: microlend_user
+      POSTGRES_PASSWORD: microlend_pass
+      POSTGRES_DB: microlend_loans_db
+    volumes:
+      - postgres_loans_data:/var/lib/postgresql/data
+    networks:
+      - microlend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U microlend_user -d microlend_loans_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-repayments:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"      # Expose to localhost for local development
+    container_name: microlend-postgres-repayments
+    restart: always
+    environment:
+      POSTGRES_USER: microlend_user
+      POSTGRES_PASSWORD: microlend_pass
+      POSTGRES_DB: microlend_repayments_db
+    volumes:
+      - postgres_repayments_data:/var/lib/postgresql/data
+    networks:
+      - microlend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U microlend_user -d microlend_repayments_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: microlend-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: microlend_user
+      RABBITMQ_DEFAULT_PASS: microlend_pass
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"      # Expose AMQP port to localhost for local development
+      - "15672:15672"    # Expose management UI to your browser
+    networks:
+      - microlend_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # APPLICATION SERVICES 
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: microlend-user-service
+    restart: always
+    environment:
+      PORT: 3001
+      DB_HOST: postgres-users        # ← container name, not localhost
+      DB_PORT: 5432
+      DB_USER: microlend_user
+      DB_PASSWORD: microlend_pass
+      DB_NAME: microlend_db
+      JWT_SECRET: microlend_super_secret_jwt_key_change_in_production
+      JWT_EXPIRES_IN: 7d
+    depends_on:
+      postgres-users:
+        condition: service_healthy   # wait until postgres is ready
+    networks:
+      - microlend_network
+
+  loan-service:
+    build:
+      context: ./services/loan-service
+      dockerfile: Dockerfile
+    container_name: microlend-loan-service
+    restart: always
+    environment:
+      PORT: 3002
+      DB_HOST: postgres-loans
+      DB_PORT: 5432
+      DB_USER: microlend_user
+      DB_PASSWORD: microlend_pass
+      DB_NAME: microlend_loans_db
+      JWT_SECRET: microlend_super_secret_jwt_key_change_in_production
+      RABBITMQ_URL: amqp://microlend_user:microlend_pass@rabbitmq:5672
+    depends_on:
+      postgres-loans:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - microlend_network
+
+  credit-service:
+    build:
+      context: ./services/credit-service
+      dockerfile: Dockerfile
+    container_name: microlend-credit-service
+    restart: always
+    environment:
+      PORT: 3003
+      RABBITMQ_URL: amqp://microlend_user:microlend_pass@rabbitmq:5672
+      MODEL_PATH: model.pkl
+      INTEREST_RATE_MONTHLY: "0.03"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - microlend_network
+
+  repayment-service:
+    build:
+      context: ./services/repayment-service
+      dockerfile: Dockerfile
+    container_name: microlend-repayment-service
+    restart: always
+    environment:
+      PORT: 3004
+      DB_HOST: postgres-repayments
+      DB_PORT: 5432
+      DB_USER: microlend_user
+      DB_PASSWORD: microlend_pass
+      DB_NAME: microlend_repayments_db
+      JWT_SECRET: microlend_super_secret_jwt_key_change_in_production
+      RABBITMQ_URL: amqp://microlend_user:microlend_pass@rabbitmq:5672
+      INTEREST_RATE_MONTHLY: "0.03"
+    depends_on:
+      postgres-repayments:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - microlend_network
+
+  # ── NGINX GATEWAY ───────────────────────────────────────────────────────────
+
+  nginx:
+    image: nginx:alpine
+    container_name: microlend-nginx
+    restart: always
+    ports:
+      - "80:80"          # Expose port 80 to your browser
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - user-service
+      - loan-service
+      - credit-service
+      - repayment-service
+    networks:
+      - microlend_network
