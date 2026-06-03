@@ -45,7 +45,12 @@ pipeline {
                 stage('User Service') {
                     steps {
                         dir('services/user-service') {
-                            sh 'npm ci'
+                            sh '''
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+npm ci --fetch-timeout=300000
+'''
                             // npm ci is stricter than npm install:
                             // it uses package-lock.json exactly and
                             // deletes node_modules first for a clean install
