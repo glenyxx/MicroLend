@@ -1,5 +1,11 @@
 const { pool } = require('../db');
 const { publish } = require('../messaging/publisher');
+const {
+  loanApplicationsTotal,
+  loanDecisionsTotal,
+  loansGaugeByStatus,
+} = require('../metrics');
+
 require('dotenv').config();
 
 //APPLY FOR A LOAN 
@@ -49,6 +55,9 @@ const applyLoan = async (req, res) => {
       amount:        loan.amount,
       purpose:       loan.purpose,
     });
+
+    loanApplicationsTotal.inc();
+loansGaugeByStatus.inc({ status: 'applied' });
 
     res.status(201).json({
       message: 'Loan application submitted successfully',
@@ -183,6 +192,21 @@ const updateLoanStatus = async (req, res) => {
         officer_notes: updatedLoan.officer_notes,
       });
     }
+
+    if (status === 'approved') {
+  loanDecisionsTotal.inc({ decision: 'approved' });
+  loansGaugeByStatus.dec({ status: 'reviewing' });
+  loansGaugeByStatus.inc({ status: 'approved' });
+}
+if (status === 'rejected') {
+  loanDecisionsTotal.inc({ decision: 'rejected' });
+  loansGaugeByStatus.dec({ status: 'reviewing' });
+  loansGaugeByStatus.inc({ status: 'rejected' });
+}
+if (status === 'reviewing') {
+  loansGaugeByStatus.dec({ status: 'applied' });
+  loansGaugeByStatus.inc({ status: 'reviewing' });
+}
 
     res.status(200).json({
       message: `Loan status updated to '${status}'`,

@@ -2,21 +2,28 @@ version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    build:
+      context: .
+      dockerfile: Dockerfile
+
     container_name: microlend-jenkins
     restart: always
-    user: root   # root so Jenkins can run Docker commands
+
+    user: root
+
     ports:
-      - "8080:8080"    # Jenkins web UI
-      - "50000:50000"  # Jenkins agent port
+      - "8080:8080"
+      - "50000:50000"
+
     volumes:
-      # Persist Jenkins data (jobs, plugins, config) between restarts
       - jenkins_data:/var/jenkins_home
-      # Mount the host Docker socket so Jenkins can build Docker images
-      # This is called "Docker-in-Docker" (DinD)
+
+      # Docker socket
       - /var/run/docker.sock:/var/run/docker.sock
-      # Mount your project folder so Jenkins can access your code
+
+      # Project folder
       - C:\Users\SANDRINE\MicroLend\MicroLend:/workspace
+
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
 

@@ -1,0 +1,59 @@
+global:
+  # How often Prometheus collects metrics from each target
+  scrape_interval: 15s
+  # How often Prometheus evaluates alert rules
+  evaluation_interval: 15s
+
+# Alert rules file (we define an alert later)
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+
+  # Prometheus scrapes itself — useful for monitoring the monitor
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape the host machine's CPU, RAM, disk metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Scrape each MicroLend service
+  # The 'service' label lets Grafana filter by service name
+  - job_name: 'user-service'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['user-service:3001']
+        labels:
+          service: 'user-service'
+          environment: 'production'
+
+  - job_name: 'loan-service'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['loan-service:3002']
+        labels:
+          service: 'loan-service'
+          environment: 'production'
+
+  - job_name: 'credit-service'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['credit-service:3003']
+        labels:
+          service: 'credit-service'
+          environment: 'production'
+
+  - job_name: 'repayment-service'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['repayment-service:3004']
+        labels:
+          service: 'repayment-service'
+          environment: 'production'

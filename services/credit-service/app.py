@@ -1,3 +1,12 @@
+import time
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from metrics import (
+    registry,
+    scoring_requests_total,
+    scoring_duration_seconds,
+    average_credit_score,
+    decisions_total
+)
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
@@ -149,19 +158,6 @@ def health():
 
 @app.route('/api/credit/score', methods=['POST'])
 def score():
-    """
-    Score a loan application.
-
-    Expected JSON body:
-    {
-        "monthly_income":    350000,
-        "debt_monthly":      40000,
-        "loan_amount":       500000,
-        "years_in_business": 3.5,
-        "duration_months":   12,
-        "sector":            0
-    }
-    """
     if pipeline is None:
         return jsonify({'error': 'Model not loaded'}), 503
 
@@ -170,7 +166,20 @@ def score():
         return jsonify({'error': 'Request body must be JSON'}), 400
 
     try:
+        start = time.time()
         result = compute_score(data)
+        duration = time.time() - start
+
+        # Record metrics
+        scoring_duration_seconds.observe(duration)
+        scoring_requests_total.labels(
+            recommendation=result['recommendation']
+        ).inc()
+        decisions_total.labels(
+            decision=result['recommendation']
+        ).inc()
+        average_credit_score.set(result['credit_score'])
+
         return jsonify(result), 200
 
     except ValueError as e:
@@ -206,6 +215,11 @@ def batch_score():
             results.append({'index': i, 'success': False, 'error': str(e)})
 
     return jsonify({'results': results}), 200
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus scrapes this endpoint every 15 seconds."""
+    return generate_latest(registry), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 
 if __name__ == '__main__':

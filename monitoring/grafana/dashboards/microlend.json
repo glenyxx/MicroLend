@@ -1,0 +1,171 @@
+{
+  "title": "MicroLend Platform Dashboard",
+  "uid": "microlend-main",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate — All Services",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(user_service_http_requests_total[1m])) by (route)",
+          "legendFormat": "user: {{route}}"
+        },
+        {
+          "expr": "sum(rate(loan_service_http_requests_total[1m])) by (route)",
+          "legendFormat": "loan: {{route}}"
+        },
+        {
+          "expr": "sum(rate(repayment_service_http_requests_total[1m])) by (route)",
+          "legendFormat": "repayment: {{route}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error Rate (5xx) per Service",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(loan_service_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legendFormat": "loan-service errors"
+        },
+        {
+          "expr": "sum(rate(user_service_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legendFormat": "user-service errors"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Loans by Status (current)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "loan_service_loans_by_status",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Total Loan Applications",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 8, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "loan_service_applications_total",
+          "legendFormat": "Total applications"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Credit Scoring Duration (p95)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(credit_service_scoring_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95 scoring time"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(credit_service_scoring_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50 scoring time"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Overdue Instalments",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 14, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "repayment_service_overdue_instalments_total",
+          "legendFormat": "Overdue instalments"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": 0 },
+            { "color": "yellow", "value": 10 },
+            { "color": "red", "value": 50 }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Active Repayment Schedules",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 14, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "repayment_service_active_schedules_total",
+          "legendFormat": "Active schedules"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Registered Users Total",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 14, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "user_service_registered_users_total",
+          "legendFormat": "Registered users"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Login Success vs Failure",
+      "type": "timeseries",
+      "gridPos": { "x": 18, "y": 14, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(user_service_login_attempts_total{outcome=\"success\"}[5m])",
+          "legendFormat": "Successful logins"
+        },
+        {
+          "expr": "rate(user_service_login_attempts_total{outcome=\"failure\"}[5m])",
+          "legendFormat": "Failed logins"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Host CPU Usage %",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)",
+          "legendFormat": "CPU %"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Host Memory Usage %",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "Memory %"
+        }
+      ]
+    }
+  ]
+}

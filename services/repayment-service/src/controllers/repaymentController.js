@@ -1,4 +1,9 @@
 const { pool } = require('../db');
+const {
+  activeSchedules,
+  overdueInstalments,
+  paymentsRecorded,
+} = require('../metrics');
 
 // GET SCHEDULE FOR A LOAN 
 const getSchedule = async (req, res) => {
@@ -104,6 +109,7 @@ const recordPayment = async (req, res) => {
         instalment_id,
       ]
     );
+    paymentsRecorded.inc();
 
     if (newStatus === 'paid') {
       const remaining = await pool.query(
@@ -162,7 +168,7 @@ const getOverdueLoans = async (req, res) => {
     });
 
   } catch (err) {
-    console.error('getOverdueLoans error:', err.message);
+    overdueInstalments.set(result.rowCount);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

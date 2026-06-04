@@ -1,6 +1,7 @@
 const amqp = require('amqplib');
 const { pool } = require('../db');
 const { generateSchedule } = require('../utils/scheduleGenerator');
+const { activeSchedules } = require('../metrics');
 require('dotenv').config();
 
 const EXCHANGE_NAME = 'microlend_events';
@@ -58,6 +59,7 @@ const createScheduleFromEvent = async (loanData) => {
     }
 
     await client.query('COMMIT');
+    activeSchedules.inc();
 
     console.log(`\n✅ Repayment schedule created for loan #${loanData.loanId}`);
     console.log(`   Borrower   : ${schedule.borrower_name}`);
@@ -65,6 +67,7 @@ const createScheduleFromEvent = async (loanData) => {
     console.log(`   Monthly    : ${schedule.monthly_instalment.toLocaleString()} XAF`);
     console.log(`   Total due  : ${schedule.total_repayable.toLocaleString()} XAF`);
     console.log(`   Instalments: ${schedule.duration_months}`);
+  
 
   } catch (err) {
     await client.query('ROLLBACK');
@@ -73,6 +76,7 @@ const createScheduleFromEvent = async (loanData) => {
     client.release();
   }
 };
+
 
 const startConsumer = async () => {
   while (true) {

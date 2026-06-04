@@ -1,7 +1,8 @@
 const express = require('express');
 const cors    = require('cors');
 require('dotenv').config();
-
+const { register, registeredUsersTotal } = require('./metrics');
+const metricsMiddleware = require('./metrics/httpMiddleware');
 const repaymentRoutes       = require('./routes/repayments');
 const { initDB }            = require('./db');
 const { startConsumer }     = require('./messaging/consumer');
@@ -12,12 +13,17 @@ const PORT = process.env.PORT || 3004;
 
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', service: 'repayment-service' });
 });
 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 app.use('/api/repayments', repaymentRoutes);
 
 // Global error handler

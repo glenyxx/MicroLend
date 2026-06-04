@@ -6,12 +6,16 @@ const loanRoutes = require('./routes/loans');
 const { initDB } = require('./db');
 const { connect: connectRabbitMQ } = require('./messaging/publisher');
 
+const { register, registeredUsersTotal } = require('./metrics');
+const metricsMiddleware = require('./metrics/httpMiddleware');
+
 const app = express();
 const PORT = process.env.PORT || 3002;
 
 //MIDDLEWARE 
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 //HEALTH CHECK 
 app.get('/health', (req, res) => {
@@ -19,6 +23,10 @@ app.get('/health', (req, res) => {
 });
 
 //ROUTES 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 app.use('/api/loans', loanRoutes);
 
 //GLOBAL ERROR HANDLER

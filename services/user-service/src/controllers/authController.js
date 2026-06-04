@@ -60,6 +60,8 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    loginAttemptsTotal.inc({ outcome: 'failure' });
+
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
       // Use a vague message — don't tell attackers whether the email exists
@@ -81,6 +83,9 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
+
+    const { loginAttemptsTotal } = require('../metrics');
+    loginAttemptsTotal.inc({ outcome: 'success' });
 
     res.status(200).json({
       message: 'Login successful',

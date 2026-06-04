@@ -1,0 +1,39 @@
+groups:
+  - name: microlend_alerts
+    rules:
+
+      # Alert if any service has been returning errors for more than 2 minutes
+      - alert: HighErrorRate
+        expr: |
+          rate(loan_service_http_requests_total{status_code=~"5.."}[5m])
+          /
+          rate(loan_service_http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on loan service"
+          description: "More than 5% of requests are returning 5xx errors"
+
+      # Alert if credit scoring is taking too long
+      - alert: SlowCreditScoring
+        expr: |
+          histogram_quantile(0.95,
+            rate(credit_service_scoring_duration_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Credit scoring is slow"
+          description: "95th percentile scoring time exceeds 2 seconds"
+
+      # Alert if overdue instalments are growing
+      - alert: HighOverdueInstalments
+        expr: repayment_service_overdue_instalments_total > 50
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High number of overdue instalments"
+          description: "More than 50 instalments are currently overdue"
