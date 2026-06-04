@@ -37,6 +37,9 @@ const register = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
+    const { registeredUsersTotal } = require('../metrics');
+      registeredUsersTotal.inc();
+
     res.status(201).json({
       message: 'User registered successfully',
       token,
@@ -62,6 +65,8 @@ const login = async (req, res) => {
       // Use a vague message — don't tell attackers whether the email exists
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    loginAttemptsTotal.inc({ outcome: 'failure' });
 
     const user = result.rows[0];
 
