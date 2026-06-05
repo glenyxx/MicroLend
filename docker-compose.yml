@@ -258,3 +258,16 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     networks:
       - microlend_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: microlend-frontend
+    restart: always
+    ports:
+      - "5173:80"     # Access the HTML dashboard at http://localhost:5173
+    depends_on:
+      - nginx
+    networks:
+      - microlend_network

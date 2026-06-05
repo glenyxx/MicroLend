@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apply for Loan - MicroLend</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="global-navbar-container"></div>
+
+  <main style="max-width: 48rem; margin: 2rem auto; padding: 0 1rem;">
+    <h1 class="page-title" style="margin-bottom: 0.25rem;">Apply for a Loan</h1>
+    <p style="color: var(--slate-400); font-size: 0.875rem; margin-bottom: 2rem;">
+      Fill in your business details to get an instant credit score preview
+    </p>
+
+    <form id="apply-loan-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <div class="card">
+        <h2 style="font-size: 1rem; font-weight: 600; color: var(--slate-900); margin-bottom: 1rem;">Loan Details</h2>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Loan purpose</label>
+            <input type="text" id="purpose" required class="input" placeholder="e.g. Purchase inventory for grocery store">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Amount (XAF)</label>
+              <input type="number" id="amount" required min="50000" max="5000000" class="input" placeholder="500000">
+              <span style="font-size: 0.75rem; color: var(--slate-400); display: block; margin-top: 0.25rem;">Between 50,000 and 5,000,000 XAF</span>
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Duration</label>
+              <select id="duration_months" class="input">
+                <option value="6">6 months</option>
+                <option value="12" selected>12 months</option>
+                <option value="18">18 months</option>
+                <option value="24">24 months</option>
+                <option value="36">36 months</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size: 1rem; font-weight: 600; color: var(--slate-900); margin-bottom: 0.125rem;">Business Profile</h2>
+        <p style="font-size: 0.75rem; color: var(--slate-400); margin-bottom: 1rem;">Used to generate your instant credit score preview — not stored</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Monthly income (XAF)</label>
+            <input type="number" id="monthly_income" class="input" placeholder="350000">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Existing monthly debt (XAF)</label>
+            <input type="number" id="debt_monthly" class="input" placeholder="0" value="0">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Years in business</label>
+            <input type="number" id="years_in_business" step="0.5" class="input" placeholder="2">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--slate-700); margin-bottom: 0.25rem;">Business sector</label>
+            <select id="sector" class="input">
+              <option value="0">Retail</option>
+              <option value="1">Agriculture</option>
+              <option value="2">Services</option>
+              <option value="3">Manufacturing</option>
+              <option value="4">Transport</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" id="preview-score-btn" class="btn-secondary" style="margin-top: 1rem; font-size: 0.875rem;">🔍 Preview my credit score</button>
+      </div>
+
+      <div id="scorecard-mounting-node"></div>
+
+      <button type="submit" id="submit-application-btn" class="btn-primary" style="width: 100%; padding: 0.75rem;">Submit Loan Application</button>
+    </form>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (Auth.protectPage('borrower')) {
+      Utils.renderNavbar();
+
+      const previewBtn = document.getElementById('preview-score-btn');
+      const formNode = document.getElementById('apply-loan-form');
+      const submitBtn = document.getElementById('submit-application-btn');
+
+      // AI score preview calculation trigger workflow
+      previewBtn.addEventListener('click', async () => {
+        const income = document.getElementById('monthly_income').value;
+        const amount = document.getElementById('amount').value;
+
+        if (!income || !amount) {
+          alert('Enter income and amount metrics first for a score preview calculation.');
+          return;
+        }
+
+        previewBtn.innerText = 'Calculating...';
+        previewBtn.disabled = true;
+
+        try {
+          const payload = {
+            monthly_income: parseFloat(income),
+            debt_monthly: parseFloat(document.getElementById('debt_monthly').value) || 0,
+            loan_amount: parseFloat(amount),
+            years_in_business: parseFloat(document.getElementById('years_in_business').value) || 1,
+            duration_months: parseInt(document.getElementById('duration_months').value),
+            sector: parseInt(document.getElementById('sector').value)
+          };
+
+          const res = await MicroLendAPI.credit.scoreLoan(payload);
+          
+          // Re-render the canvas mapping card
+          Utils.renderScoreCard('scorecard-mounting-node', {
+            score: res.data.credit_score,
+            recommendation: res.data.recommendation,
+            confidence: res.data.confidence,
+            factors: res.data.risk_factors
+          });
+
+        } catch (err) {
+          alert('Could not produce a credit risk profile preview.');
+        } finally {
+          previewBtn.innerText = '🔍 Preview my credit score';
+          previewBtn.disabled = false;
+        }
+      });
+
+      // Submit form configuration mapping
+      formNode.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Submitting application...';
+
+        try {
+          await MicroLendAPI.loans.applyLoan({
+            amount: parseFloat(document.getElementById('amount').value),
+            purpose: document.getElementById('purpose').value,
+            duration_months: parseInt(document.getElementById('duration_months').value)
+          });
+
+          alert('Loan application submitted successfully!');
+          window.location.href = 'borrower.html';
+        } catch (err) {
+          alert(err.response?.data?.error || 'Submission pipeline broken.');
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Submit Loan Application';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

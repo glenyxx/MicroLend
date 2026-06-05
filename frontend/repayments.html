@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Repayments - MicroLend</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="global-navbar-container"></div>
+
+  <main style="max-width: 80rem; margin: 2rem auto; padding: 0 1rem;">
+    <h1 class="page-title" style="margin-bottom: 0.25rem;">Repayment Management</h1>
+    <p style="color: var(--slate-400); font-size: 0.875rem; margin-bottom: 2rem;">Track amortized payments schedules and process account balances.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+      
+      <div class="card" id="payment-processing-panel">
+        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">Record Payment Receipt</h2>
+        <form id="payment-receipt-form" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;">Loan Reference ID</label>
+            <input type="number" id="pay-loan-id" required class="input" placeholder="e.g. 1">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;">Receipt Amount (XAF)</label>
+            <input type="number" id="pay-amount" required class="input" placeholder="25000">
+          </div>
+          <button type="submit" id="receipt-submit-btn" class="btn-primary" style="width: 100%; padding: 0.625rem;">Log Payment Reference</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;" id="schedule-title">Active Repayments Ledgers</h2>
+        
+        <div id="repayments-loading" style="text-align: center; padding: 2rem;">
+          <div style="display: inline-block; width: 1.5rem; height: 1.5rem; border: 2px solid var(--slate-200); border-bottom-color: var(--primary-700); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+
+        <div id="repayments-empty" style="display: none; text-align: center; color: var(--slate-400); padding: 2rem 0;">
+          No operational payment schedules bound to this scope view context.
+        </div>
+
+        <div id="repayments-table-wrap" style="display: none; overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--slate-100); color: var(--slate-400); font-size: 0.75rem; text-transform: uppercase;">
+                <th style="padding: 0.5rem;">Instalment</th>
+                <th style="padding: 0.5rem;">Amount Due</th>
+                <th style="padding: 0.5rem;">Principal</th>
+                <th style="padding: 0.5rem;">Interest</th>
+                <th style="padding: 0.5rem;">Status</th>
+                <th style="padding: 0.5rem;">Due Date</th>
+              </tr>
+            </thead>
+            <tbody id="repayments-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (Auth.protectPage()) {
+      Utils.renderNavbar();
+
+      const user = Auth.getUser();
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryLoanId = urlParams.get('loanId');
+      const viewMode = urlParams.get('view'); // all or overdue
+
+      // Pre-fill target loan field context if context is passed out from active redirect links
+      if (queryLoanId) {
+        document.getElementById('pay-loan-id').value = queryLoanId;
+      }
+
+      // Hide submission tools entirely if borrower roles try accessing general operational lists
+      if (user.role === 'borrower' && !queryLoanId) {
+        document.getElementById('payment-processing-panel').style.display = 'none';
+      }
+
+      const fetchTargetData = async () => {
+        try {
+          let response;
+          if (queryLoanId) {
+            document.getElementById('schedule-title').innerText = `Repayment Schedule for Loan #${queryLoanId}`;
+            response = await MicroLendAPI.repayments.getSchedule(queryLoanId);
+          } else if (viewMode === 'overdue') {
+            document.getElementById('schedule-title').innerText = "Systemic Overdue Tracking Register";
+            response = await MicroLendAPI.repayments.getOverdue();
+          } else {
+            document.getElementById('schedule-title').innerText = "Global Portfolio Ledgers";
+            response = await MicroLendAPI.repayments.getAllSchedules();
+          }
+
+          document.getElementById('repayments-loading').style.display = 'none';
+          const items = response.data.schedule || response.data.repayments || response.data || [];
+
+          if (items.length === 0) {
+            document.getElementById('repayments-empty').style.display = 'block';
+            return;
+          }
+
+          const tbody = document.getElementById('repayments-table-body');
+          let rows = '';
+
+          items.forEach((item, index) => {
+            rows += `
+              <tr style="border-bottom: 1px solid var(--slate-50);">
+                <td class="font-mono" style="padding: 0.75rem 0.5rem;">#${item.installment_number || index + 1}</td>
+                <td class="font-mono" style="padding: 0.75rem 0.5rem; font-weight: 500;">${parseFloat(item.amount_due || item.amount).toLocaleString()}</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--slate-400);">${item.principal_due ? parseFloat(item.principal_due).toLocaleString() : 'N/A'}</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--slate-400);">${item.interest_due ? parseFloat(item.interest_due).toLocaleString() : 'N/A'}</td>
+                <td style="padding: 0.75rem 0.5rem;">${Utils.renderStatusBadge(item.status)}</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--slate-400);">${new Date(item.due_date).toLocaleDateString()}</td>
+              </tr>
+            `;
+          });
+
+          tbody.innerHTML = rows;
+          document.getElementById('repayments-table-wrap').style.display = 'block';
+
+        } catch {
+          document.getElementById('repayments-loading').style.display = 'none';
+          document.getElementById('repayments-empty').style.display = 'block';
+          document.getElementById('repayments-empty').innerText = "Failed loading target schedule ledgers context parameters.";
+        }
+      };
+
+      // Form validation interceptor configuration mapping
+      document.getElementById('payment-receipt-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('receipt-submit-btn');
+        btn.disabled = true;
+        btn.innerText = 'Processing...';
+
+        try {
+          await MicroLendAPI.repayments.recordPayment({
+            loan_id: parseInt(document.getElementById('pay-loan-id').value),
+            amount: parseFloat(document.getElementById('pay-amount').value)
+          });
+
+          alert('Payment reference transaction committed successfully!');
+          location.reload();
+        } catch (err) {
+          alert('Could not validate record parameter posting.');
+          btn.disabled = false;
+          btn.innerText = 'Log Payment Reference';
+        }
+      });
+
+      fetchTargetData();
+    }
+  </script>
+</body>
+</html>
