@@ -46,11 +46,12 @@ pipeline {
                     steps {
                         dir('services/user-service') {
                             sh '''
-npm config set fetch-retries 5
-npm config set fetch-retry-mintimeout 20000
-npm config set fetch-retry-maxtimeout 120000
-npm ci --fetch-timeout=300000
-'''
+npm config set fetch-retries 10
+        npm config set fetch-retry-factor 2
+        npm config set fetch-retry-mintimeout 20000
+        npm config set fetch-retry-maxtimeout 300000
+        npm ci --fetch-timeout=300000
+    '''
                             // npm ci is stricter than npm install:
                             // it uses package-lock.json exactly and
                             // deletes node_modules first for a clean install
@@ -61,7 +62,13 @@ npm ci --fetch-timeout=300000
                 stage('Loan Service') {
                     steps {
                         dir('services/loan-service') {
-                            sh 'npm ci'
+                            sh '''
+        npm config set fetch-retries 10
+        npm config set fetch-retry-factor 2
+        npm config set fetch-retry-mintimeout 20000
+        npm config set fetch-retry-maxtimeout 300000
+        npm ci --fetch-timeout=300000
+    '''
                         }
                     }
                 }
@@ -69,7 +76,13 @@ npm ci --fetch-timeout=300000
                 stage('Repayment Service') {
                     steps {
                         dir('services/repayment-service') {
-                            sh 'npm ci'
+                            sh '''
+        npm config set fetch-retries 10
+        npm config set fetch-retry-factor 2
+        npm config set fetch-retry-mintimeout 20000
+        npm config set fetch-retry-maxtimeout 300000
+        npm ci --fetch-timeout=300000
+    '''
                         }
                     }
                 }
