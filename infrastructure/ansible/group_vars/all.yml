@@ -1,0 +1,36 @@
+---
+# ── APPLICATION SETTINGS ──────────────────────────────────────────────────────
+app_name:         microlend
+app_user:         microlend              # Linux user that owns the app files
+app_dir:          /opt/microlend         # where the app lives on the VPS
+github_repo:      https://github.com/glenyxx/microlend.git  
+github_branch:    main
+
+# ── DOCKER HUB ────────────────────────────────────────────────────────────────
+dockerhub_username: glenys    
+
+# ── DATABASE CREDENTIALS ──────────────────────────────────────────────────────
+# In a real production deployment, use ansible-vault to encrypt these
+db_user:          microlend_user
+db_password:      microlend_pass
+rabbitmq_user:    microlend_user
+rabbitmq_pass:    microlend_pass
+
+# ── JWT ───────────────────────────────────────────────────────────────────────
+jwt_secret:       microlend_super_secret_jwt_key_change_in_production
+
+# ── INTEREST RATE ─────────────────────────────────────────────────────────────
+interest_rate:    "0.03"
+
+# ── NGINX ─────────────────────────────────────────────────────────────────────
+server_name:      localhost              # replace with your domain name
+nginx_config_name: microlend
+
+# ── FIREWALL PORTS ────────────────────────────────────────────────────────────
+allowed_ports:
+  - "22"    # SSH
+  - "80"    # HTTP
+  - "443"   # HTTPS
+  - "8080"  # Jenkins
+  - "9090"  # Prometheus
+  - "3030"  # Grafana

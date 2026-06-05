@@ -1,0 +1,55 @@
+---
+# handlers_from lets this role use the handlers defined separately
+# Add this at the very beginning of the file
+# ── NGINX ROLE ────────────────────────────────────────────────────────────────
+
+- name: Install Nginx
+  apt:
+    name:  nginx
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Ensure Nginx is started and enabled on boot
+  service:
+    name:    nginx
+    state:   started
+    enabled: yes
+  become: yes
+
+- name: Deploy MicroLend Nginx configuration from template
+  # The template module copies a .j2 file and replaces {{ variables }}
+  # with values from group_vars/all.yml
+  template:
+    src:   nginx.conf.j2
+    dest:  "/etc/nginx/sites-available/{{ nginx_config_name }}"
+    owner: root
+    group: root
+    mode:  '0644'
+  become: yes
+  notify: reload nginx    # trigger the handler below when this task changes
+
+- name: Enable site by creating symlink in sites-enabled
+  file:
+    src:   "/etc/nginx/sites-available/{{ nginx_config_name }}"
+    dest:  "/etc/nginx/sites-enabled/{{ nginx_config_name }}"
+    state: link
+  become: yes
+  notify: reload nginx
+
+- name: Remove default Nginx site
+  file:
+    path:  /etc/nginx/sites-enabled/default
+    state: absent
+  become: yes
+  notify: reload nginx
+
+- name: Test Nginx configuration syntax
+  command: nginx -t
+  become: yes
+  changed_when: false
+  register: nginx_test
+
+- name: Print Nginx config test result
+  debug:
+    msg: "{{ nginx_test.stderr }}"

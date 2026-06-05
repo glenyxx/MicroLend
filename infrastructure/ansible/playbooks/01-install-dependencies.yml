@@ -1,0 +1,50 @@
+---
+
+- name: Install all MicroLend dependencies on the VPS
+  hosts: vps          # run on the servers listed under [vps] in inventory.ini
+  gather_facts: yes   # collect info about the server (OS, IP, date) first
+
+  # Pre-tasks run before roles — useful for sanity checks
+  pre_tasks:
+    - name: Print server information
+      debug:
+        msg: |
+          ══════════════════════════════════════════
+          Target server  : {{ inventory_hostname }}
+          OS             : {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture   : {{ ansible_architecture }}
+          Date           : {{ ansible_date_time.date }}
+          ══════════════════════════════════════════
+
+    - name: Verify we can connect as the correct user
+      command: whoami
+      register: current_user
+      changed_when: false
+
+    - name: Confirm connection user
+      debug:
+        msg: "Connected as: {{ current_user.stdout }}"
+
+  # Roles run in the order listed here
+  roles:
+    - common    # base packages, firewall, app user
+    - docker    # Docker Engine + Docker Compose
+
+  # Post-tasks run after all roles complete
+  post_tasks:
+    - name: Reboot server to apply any kernel updates (optional)
+      reboot:
+        reboot_timeout: 120
+      become: yes
+      when: ansible_distribution_version == "22.04"
+      # Only reboot if there are pending updates that need it
+      # Remove this task if you don't want automatic reboots
+
+    - name: Final confirmation
+      debug:
+        msg: |
+          ══════════════════════════════════════════
+          ✅ Playbook 1 complete!
+          Docker and all dependencies are installed.
+          Run playbook 02 next to configure Nginx.
+          ══════════════════════════════════════════

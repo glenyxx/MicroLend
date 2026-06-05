@@ -1,0 +1,144 @@
+---
+# ── DEPLOY ROLE ───────────────────────────────────────────────────────────────
+
+- name: Check if application directory exists
+  stat:
+    path: "{{ app_dir }}"
+  register: app_dir_stat
+
+- name: Clone GitHub repository (first deployment)
+  git:
+    repo:    "{{ github_repo }}"
+    dest:    "{{ app_dir }}"
+    version: "{{ github_branch }}"
+    force:   yes
+  become: yes
+  become_user: "{{ app_user }}"
+  when: not app_dir_stat.stat.exists
+
+- name: Pull latest code (subsequent deployments)
+  git:
+    repo:    "{{ github_repo }}"
+    dest:    "{{ app_dir }}"
+    version: "{{ github_branch }}"
+    update:  yes
+  become: yes
+  become_user: "{{ app_user }}"
+  when: app_dir_stat.stat.exists
+
+- name: Create .env file for user-service
+  # The copy module with content: writes a file with the given content
+  # {{ variable }} values come from group_vars/all.yml
+  copy:
+    content: |
+      PORT=3001
+      DB_HOST=postgres-users
+      DB_PORT=5432
+      DB_USER={{ db_user }}
+      DB_PASSWORD={{ db_password }}
+      DB_NAME=microlend_db
+      JWT_SECRET={{ jwt_secret }}
+      JWT_EXPIRES_IN=7d
+    dest:  "{{ app_dir }}/services/user-service/.env"
+    owner: "{{ app_user }}"
+    mode:  '0600'    # owner read/write only — protects secrets
+  become: yes
+
+- name: Create .env file for loan-service
+  copy:
+    content: |
+      PORT=3002
+      DB_HOST=postgres-loans
+      DB_PORT=5432
+      DB_USER={{ db_user }}
+      DB_PASSWORD={{ db_password }}
+      DB_NAME=microlend_loans_db
+      JWT_SECRET={{ jwt_secret }}
+      RABBITMQ_URL=amqp://{{ rabbitmq_user }}:{{ rabbitmq_pass }}@rabbitmq:5672
+    dest:  "{{ app_dir }}/services/loan-service/.env"
+    owner: "{{ app_user }}"
+    mode:  '0600'
+  become: yes
+
+- name: Create .env file for credit-service
+  copy:
+    content: |
+      PORT=3003
+      RABBITMQ_URL=amqp://{{ rabbitmq_user }}:{{ rabbitmq_pass }}@rabbitmq:5672
+      MODEL_PATH=model.pkl
+      INTEREST_RATE_MONTHLY={{ interest_rate }}
+    dest:  "{{ app_dir }}/services/credit-service/.env"
+    owner: "{{ app_user }}"
+    mode:  '0600'
+  become: yes
+
+- name: Create .env file for repayment-service
+  copy:
+    content: |
+      PORT=3004
+      DB_HOST=postgres-repayments
+      DB_PORT=5432
+      DB_USER={{ db_user }}
+      DB_PASSWORD={{ db_password }}
+      DB_NAME=microlend_repayments_db
+      JWT_SECRET={{ jwt_secret }}
+      RABBITMQ_URL=amqp://{{ rabbitmq_user }}:{{ rabbitmq_pass }}@rabbitmq:5672
+      INTEREST_RATE_MONTHLY={{ interest_rate }}
+    dest:  "{{ app_dir }}/services/repayment-service/.env"
+    owner: "{{ app_user }}"
+    mode:  '0600'
+  become: yes
+
+- name: Pull latest Docker images from Docker Hub
+  community.docker.docker_image:
+    name:   "{{ dockerhub_username }}/{{ item }}"
+    tag:    latest
+    source: pull
+  loop:
+    - microlend-user-service
+    - microlend-loan-service
+    - microlend-credit-service
+    - microlend-repayment-service
+  become: yes
+
+- name: Stop existing containers
+  community.docker.docker_compose:
+    project_src: "{{ app_dir }}"
+    state:       absent
+  become: yes
+  ignore_errors: yes   # don't fail if nothing was running
+
+- name: Start all containers with docker-compose
+  community.docker.docker_compose:
+    project_src: "{{ app_dir }}"
+    build:       yes
+    state:       present
+  become: yes
+  register: compose_output
+
+- name: Print container status
+  debug:
+    msg: "{{ compose_output }}"
+
+- name: Wait for services to become healthy
+  wait_for:
+    host:    localhost
+    port:    "{{ item }}"
+    timeout: 60
+  loop:
+    - 3001
+    - 3002
+    - 3003
+    - 3004
+
+- name: Verify platform is responding
+  uri:
+    url:            http://localhost/health
+    method:         GET
+    status_code:    200
+    timeout:        10
+  register: health_response
+
+- name: Print health check result
+  debug:
+    msg: "✅ Platform is live: {{ health_response.json }}"

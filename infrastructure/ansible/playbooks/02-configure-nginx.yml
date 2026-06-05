@@ -1,0 +1,49 @@
+---
+# ════════════════════════════════════════════════════════════════════════════
+# PLAYBOOK 2: Configure Nginx
+# Purpose : Installs Nginx and deploys the MicroLend reverse proxy config
+# Run with: ansible-playbook playbooks/02-configure-nginx.yml
+# Requires: Playbook 01 must have run successfully first
+# ════════════════════════════════════════════════════════════════════════════
+
+- name: Configure Nginx as MicroLend reverse proxy
+  hosts: vps
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Verify Docker is installed (prerequisite check)
+      command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: docker_check.rc != 0
+
+    - name: Docker prerequisite confirmed
+      debug:
+        msg: "✅ Docker found: {{ docker_check.stdout }}"
+
+  roles:
+    - nginx
+
+  post_tasks:
+    - name: Check Nginx is serving on port 80
+      wait_for:
+        host:    localhost
+        port:    80
+        timeout: 30
+
+    - name: Test health endpoint
+      uri:
+        url:         http://localhost/health
+        method:      GET
+        status_code: 200
+      register: nginx_health
+      ignore_errors: yes   # the app may not be running yet
+
+    - name: Final confirmation
+      debug:
+        msg: |
+          ══════════════════════════════════════════
+          ✅ Playbook 2 complete!
+          Nginx is configured and running on port 80.
+          Run playbook 03 next to deploy the application.
+          ══════════════════════════════════════════

@@ -1,0 +1,79 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+
+    # Logging
+    access_log /var/log/nginx/microlend_access.log;
+    error_log  /var/log/nginx/microlend_error.log;
+
+    # Upstream service definitions
+    # These point to Docker containers by their service name on the Docker network
+    upstream user_service {
+        server 127.0.0.1:3001;
+    }
+
+    upstream loan_service {
+        server 127.0.0.1:3002;
+    }
+
+    upstream credit_service {
+        server 127.0.0.1:3003;
+    }
+
+    upstream repayment_service {
+        server 127.0.0.1:3004;
+    }
+
+    server {
+        listen      80;
+        server_name {{ server_name }};
+
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin'  '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PATCH, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+
+        location /api/users/ {
+            proxy_pass         http://user_service;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_read_timeout 60s;
+        }
+
+        location /api/loans/ {
+            proxy_pass         http://loan_service;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_read_timeout 60s;
+        }
+
+        location /api/credit/ {
+            proxy_pass         http://credit_service;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_read_timeout 120s;   # credit scoring can take longer
+        }
+
+        location /api/repayments/ {
+            proxy_pass         http://repayment_service;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_read_timeout 60s;
+        }
+
+        location /health {
+            return 200 '{"status":"ok","host":"{{ inventory_hostname }}","deployed_by":"ansible"}';
+            add_header Content-Type application/json;
+        }
+    }
+}

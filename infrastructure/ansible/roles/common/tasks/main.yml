@@ -1,0 +1,82 @@
+---
+# ── COMMON ROLE ───────────────────────────────────────────────────────────────
+# Runs first on every playbook. Sets up the base server configuration.
+
+- name: Update apt package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600   # only update if cache is older than 1 hour
+  become: yes                # run as sudo
+
+- name: Upgrade all installed packages to latest versions
+  apt:
+    upgrade: dist
+    autoremove: yes
+  become: yes
+
+- name: Install essential packages
+  apt:
+    name:
+      - git
+      - curl
+      - wget
+      - unzip
+      - htop
+      - vim
+      - ufw               # firewall
+      - fail2ban          # blocks brute-force SSH attempts
+      - python3-pip
+      - python3-docker    # needed for Ansible's docker modules
+    state: present
+  become: yes
+
+- name: Create the application user
+  user:
+    name:     "{{ app_user }}"
+    shell:    /bin/bash
+    groups:   docker      # add to docker group so it can run docker commands
+    append:   yes
+    create_home: yes
+  become: yes
+
+- name: Create application directory
+  file:
+    path:  "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode:  '0755'
+  become: yes
+
+- name: Configure UFW firewall — deny all incoming by default
+  ufw:
+    state:   enabled
+    policy:  deny
+    direction: incoming
+  become: yes
+
+- name: Configure UFW firewall — allow outgoing
+  ufw:
+    policy:    allow
+    direction: outgoing
+  become: yes
+
+- name: Open required ports in firewall
+  ufw:
+    rule:  allow
+    port:  "{{ item }}"
+    proto: tcp
+  loop: "{{ allowed_ports }}"
+  become: yes
+
+- name: Ensure fail2ban is running and enabled on boot
+  service:
+    name:    fail2ban
+    state:   started
+    enabled: yes
+  become: yes
+
+- name: Set server timezone to Africa/Douala
+  timezone:
+    name: Africa/Douala
+  become: yes

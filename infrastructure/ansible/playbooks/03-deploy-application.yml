@@ -1,0 +1,52 @@
+---
+# ════════════════════════════════════════════════════════════════════════════
+# PLAYBOOK 3: Deploy Application
+# Purpose : Clones the GitHub repo, creates .env files, pulls Docker
+#            images, and starts the entire MicroLend platform
+# Run with: ansible-playbook playbooks/03-deploy-application.yml
+# Requires: Playbooks 01 and 02 must have run first
+# ════════════════════════════════════════════════════════════════════════════
+
+- name: Deploy MicroLend application
+  hosts: vps
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Print deployment info
+      debug:
+        msg: |
+          ══════════════════════════════════════════
+          Deploying MicroLend
+          Repo     : {{ github_repo }}
+          Branch   : {{ github_branch }}
+          App dir  : {{ app_dir }}
+          ══════════════════════════════════════════
+
+  roles:
+    - deploy
+
+  post_tasks:
+    - name: Print all running containers
+      command: docker ps --format "table {% raw %}{{.Names}}\t{{.Status}}\t{{.Ports}}{% endraw %}"
+      register: containers
+      changed_when: false
+      become: yes
+
+    - name: Show running containers
+      debug:
+        msg: "{{ containers.stdout_lines }}"
+
+    - name: Deployment complete
+      debug:
+        msg: |
+          ══════════════════════════════════════════
+          ✅ MicroLend deployed successfully!
+
+          Access the platform:
+            API Gateway  : http://{{ inventory_hostname }}/
+            RabbitMQ UI  : http://{{ inventory_hostname }}:15672
+            Prometheus   : http://{{ inventory_hostname }}:9090
+            Grafana      : http://{{ inventory_hostname }}:3030
+
+          Grafana login : admin / microlend_admin
+          ══════════════════════════════════════════
